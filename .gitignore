@@ -1,3 +1,5 @@
+#FLUTTER FRONTEND IGNORED FILES
+
 # Miscellaneous
 *.class
 *.log
@@ -5,9 +7,9 @@
 *.swp
 .DS_Store
 .atom/
-.build/
-.buildlog/
-.history
+.client/build/
+.client/buildlog/
+.client/history
 .svn/
 .swiftpm/
 migrate_working_dir/
@@ -16,7 +18,7 @@ migrate_working_dir/
 *.iml
 *.ipr
 *.iws
-.idea/
+client/.idea/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -24,22 +26,26 @@ migrate_working_dir/
 #.vscode/
 
 # Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
+client/**/doc/api/
+client/**/ios/Flutter/.last_build_id
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+client/.pub-cache/
+client/.pub/
+client/build/
 
 # Symbolication related
-app.*.symbols
+client/app.*.symbols
 
 # Obfuscation related
-app.*.map.json
+client/app.*.map.json
 
 # Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+client/android/app/debug
+client/android/app/profile
+client/android/app/release
+
+
+#NODE JS BACKEND IGNORED FILES
+backend/node_modules
