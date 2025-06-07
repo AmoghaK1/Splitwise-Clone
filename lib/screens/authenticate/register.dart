@@ -13,9 +13,14 @@ class _RegisterState extends State<Register> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _auth = AuthService();
 
+  // form fields
+  String firstName = '';
+  String lastName = '';
   String email = '';
+  String phone = '';
+  String age = '';
   String password = '';
-  String displayName = '';
+  String confirmPassword = '';
   String error = '';
   bool loading = false;
 
@@ -35,29 +40,56 @@ class _RegisterState extends State<Register> {
           )
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
               TextFormField(
-                decoration: const InputDecoration(labelText: 'Display Name'),
-                validator: (val) => val!.isEmpty ? 'Enter a name' : null,
-                onChanged: (val) => setState(() => displayName = val),
+                decoration: const InputDecoration(labelText: 'First Name'),
+                validator: (val) => val!.isEmpty ? 'Enter your first name' : null,
+                onChanged: (val) => setState(() => firstName = val),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Last Name'),
+                validator: (val) => val!.isEmpty ? 'Enter your last name' : null,
+                onChanged: (val) => setState(() => lastName = val),
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Email'),
                 validator: (val) => val!.isEmpty ? 'Enter an email' : null,
                 onChanged: (val) => setState(() => email = val),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Phone Number'),
+                keyboardType: TextInputType.phone,
+                validator: (val) => val!.length < 10 ? 'Enter valid phone number' : null,
+                onChanged: (val) => setState(() => phone = val),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Age'),
+                keyboardType: TextInputType.number,
+                validator: (val) => val!.isEmpty ? 'Enter your age' : null,
+                onChanged: (val) => setState(() => age = val),
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
                 validator: (val) => val!.length < 6 ? 'Password too short' : null,
                 onChanged: (val) => setState(() => password = val),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Confirm Password'),
+                obscureText: true,
+                validator: (val) => val != password ? 'Passwords do not match' : null,
+                onChanged: (val) => setState(() => confirmPassword = val),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
@@ -65,14 +97,25 @@ class _RegisterState extends State<Register> {
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     setState(() => loading = true);
-                    var result = await _auth.registerWithEmailAndPassword(
-                      email, password, displayName,
-                    );
+
+                    // Create account with Firebase Auth
+                    final result = await _auth.registerWithEmailAndPassword(email, password);
+
                     if (result == null) {
                       setState(() {
                         error = 'Registration failed';
                         loading = false;
                       });
+                    } else {
+                      // Save additional user info to Firestore or MongoDB
+                      await _auth.storeAdditionalUserInfo(
+                        uid: result.uid,
+                        firstName: firstName,
+                        lastName: lastName,
+                        phone: phone,
+                        age: age,
+                        email: email,
+                      );
                     }
                   }
                 },
