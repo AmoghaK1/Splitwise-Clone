@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "207965868733",
+    "project_id": "splity-udhaari-no-more",
+    "storage_bucket": "splity-udhaari-no-more.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:207965868733:android:19636a31009714b3ca5dd4",
+        "android_client_info": {
+          "package_name": "com.example.splity"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCN88lHi7DJOLM8KnI4GJarXw4ontPUDEo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:207965868733:android:527cb1bd73612c19ca5dd4",
+        "android_client_info": {
+          "package_name": "com.frontier.splitwise_clone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCN88lHi7DJOLM8KnI4GJarXw4ontPUDEo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
