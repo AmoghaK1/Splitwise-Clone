@@ -1,5 +1,5 @@
 /.env
-
+backend/.env
 
 #FLUTTER FRONTEND IGNORED FILES
 
@@ -52,3 +52,5 @@ client/android/app/release
 
 #NODE JS BACKEND IGNORED FILES
 backend/node_modules
+
+backend/config

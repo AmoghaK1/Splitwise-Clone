@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 
 class AddGroupScreen extends StatefulWidget {
   const AddGroupScreen({super.key});
@@ -14,20 +17,49 @@ class _AddGroupScreenState extends State<AddGroupScreen> {
 
   final List<String> _groupTypes = ['Trip', 'Friends', 'Home', 'Other'];
 
-  void _submitGroup() {
-    final name = _groupNameController.text.trim();
-    if (name.isEmpty || _selectedGroupType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields')),
+  void _submitGroup() async {
+  final name = _groupNameController.text.trim();
+  if (name.isEmpty || _selectedGroupType == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please complete all fields')),
+    );
+    return;
+  }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final idToken = await user!.getIdToken();
+
+      final response = await http.post(
+        Uri.parse('http://192.168.1.5:3000/groups/add'), // replace with your local IP for testing
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'name': name,
+          'type': _selectedGroupType!.toLowerCase(), // backend expects lowercase
+          'photoUrl': '', // add image support later
+          'members': [user.uid], // for now only one member
+        }),
       );
-      return;
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group created successfully')),
+        );
+        Navigator.pop(context);
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${error["message"]}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
-
-    // TODO: Upload image if selected and save group to Firestore
-
-    print('Group Name: $name');
-    print('Group Type: $_selectedGroupType');
-    Navigator.pop(context); // Go back after creating group
   }
 
   @override
