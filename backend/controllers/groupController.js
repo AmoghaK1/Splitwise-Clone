@@ -1,4 +1,6 @@
 const groupService = require("../services/groupService");
+const Group = require('../models/Group');
+const { NotFoundError, BadRequestError } = require('../utils/errors');
 
 exports.createGroup = async (req, res) => {
   try {
@@ -24,3 +26,29 @@ exports.getGroupsByUser = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch groups" });
   }
 };
+
+exports.addMembers = async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { memberIds } = req.body;
+    const userId = req.user.uid;
+
+    // Basic validation
+    if (!memberIds || !Array.isArray(memberIds)) {
+      throw new BadRequestError('Invalid member IDs');
+    }
+
+    // Delegate to service
+    const { addedMembers, group } = await groupService.addMembersToGroup({ groupId, memberIds, userId });
+
+    res.status(200).json({
+      success: true,
+      addedMembers,
+      group
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

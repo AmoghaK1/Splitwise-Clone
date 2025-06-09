@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 const groupRoutes = require('./routes/groupRoutes'); // Path to group routes
+const errorHandler = require('./middleware/errorHandler');
 
 dotenv.config();
 
@@ -30,6 +31,12 @@ app.use((req, res, next) => {
 mongoose.connect(process.env.MONGO_URI).then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 // Routes (auth middleware is now inside groupRoutes, no need to duplicate here)
 app.use('/groups', groupRoutes);
 
@@ -37,6 +44,9 @@ app.use('/groups', groupRoutes);
 app.get('/', (req, res) => {
   res.send('Splitwise Clone API Running');
 });
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {

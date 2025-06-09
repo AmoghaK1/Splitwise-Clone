@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:splitwise_clone/screens/groups/group_detail_screen.dart';
 import 'dart:convert';
 
 
 import 'package:splitwise_clone/screens/home/account_screen.dart';
 import 'package:splitwise_clone/screens/home/activity_screen.dart';
-import 'package:splitwise_clone/screens/home/add_group_screen.dart';
+import 'package:splitwise_clone/screens/groups/add_group_screen.dart';
 import 'package:splitwise_clone/screens/home/friends_screen.dart';
 import 'package:splitwise_clone/shared/loading.dart';
 
@@ -210,7 +211,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
                                   subtitle: Text('${group['members'].length} members'),
                                   trailing: const Icon(Icons.arrow_forward_ios),
                                   onTap: () {
-                                    // TODO: Navigate to group detail
+                                   Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => GroupDetailScreen(group: group),
+                                    ),
+                                  );
                                   },
                                 ),
                               );
