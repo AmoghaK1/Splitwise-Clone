@@ -4,7 +4,6 @@ import '../models/AppUser.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Convert Firebase user to custom AppUser
   AppUser? _userFromFirebaseUser(User? user) {
