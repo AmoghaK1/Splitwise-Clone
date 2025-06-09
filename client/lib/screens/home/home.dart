@@ -8,6 +8,7 @@ import 'package:splitwise_clone/screens/home/account_screen.dart';
 import 'package:splitwise_clone/screens/home/activity_screen.dart';
 import 'package:splitwise_clone/screens/home/add_group_screen.dart';
 import 'package:splitwise_clone/screens/home/friends_screen.dart';
+import 'package:splitwise_clone/shared/loading.dart';
 import '../../services/auth_service.dart';
 
 
@@ -137,7 +138,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Loading()
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(

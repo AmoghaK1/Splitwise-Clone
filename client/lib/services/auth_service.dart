@@ -4,6 +4,7 @@ import '../models/AppUser.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Convert Firebase user to custom AppUser
   AppUser? _userFromFirebaseUser(User? user) {
@@ -22,7 +23,7 @@ class AuthService {
     return _auth.authStateChanges().map(_userFromFirebaseUser);
   }
 
-// Sign in with email and password
+  // Sign in with email and password
   Future<AppUser?> signInWithEmailAndPassword(String email, String password) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
@@ -69,7 +70,7 @@ class AuthService {
     }
   }
 
-  //store additional info about user while registering
+  // Store additional info about user while registering
   Future<void> storeAdditionalUserInfo({
     required String uid,
     required String firstName,
@@ -78,7 +79,8 @@ class AuthService {
     required String age,
     required String email,
   }) async {
-    // Example: Save to Firestore
+    final String fullName = "$firstName $lastName";
+
     final userCollection = FirebaseFirestore.instance.collection('users');
     await userCollection.doc(uid).set({
       'firstName': firstName,
@@ -87,7 +89,27 @@ class AuthService {
       'age': age,
       'email': email,
       'createdAt': FieldValue.serverTimestamp(),
+      'name': fullName,
+      'friends': [],
+      'search_keywords': _generateSearchKeywords(fullName, email, phone),
     });
   }
 
+  // Generate search keywords
+  List<String> _generateSearchKeywords(String name, String email, String phone) {
+    final Set<String> keywords = {};
+
+    void addCombinations(String str) {
+      str = str.toLowerCase().trim();
+      for (int i = 1; i <= str.length; i++) {
+        keywords.add(str.substring(0, i));
+      }
+    }
+
+    addCombinations(name);
+    addCombinations(email);
+    addCombinations(phone);
+
+    return keywords.toList();
+  }
 }
