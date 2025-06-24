@@ -10,6 +10,7 @@ import 'package:splitwise_clone/screens/home/activity_screen.dart';
 import 'package:splitwise_clone/screens/groups/add_group_screen.dart';
 import 'package:splitwise_clone/screens/home/friends_screen.dart';
 import 'package:splitwise_clone/shared/loading.dart';
+import '../../services/auth_service.dart';
 
 
 class Home extends StatefulWidget {
@@ -20,7 +21,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  
+  final AuthService _auth = AuthService();
   int _selectedIndex = 0;
 
   // Screens
