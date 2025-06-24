@@ -9,6 +9,8 @@ router.get("/my", verifyToken, groupController.getGroupsByUser);
 router.post('/:groupId/members', verifyToken, groupController.addMembers);
 router.get('/:groupId', verifyToken, groupController.getGroupById);
 router.get('/:groupId/members', verifyToken, groupController.getGroupMembers);
+router.post("/:groupId/expenses", verifyToken, groupController.addExpenseToGroup);
+router.get("/:groupId/expenses", verifyToken, groupController.getGroupExpenses);
 
 
 module.exports = router;

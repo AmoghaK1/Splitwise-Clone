@@ -1,15 +1,20 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AddExpenseScreen extends StatefulWidget {
   final List<Map<String, dynamic>> groupMembers; // Pass from parent screen
   final String currentUserId;
-
+  final String groupId;
   const AddExpenseScreen({
     super.key,
     required this.groupMembers,
     required this.currentUserId,
+    required this.groupId,
   });
 
+ 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
@@ -20,6 +25,57 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   String? paidBy;
   Set<String> splitBetween = {};
+
+  Future<void> _submitExpense() async {
+    final description = _descController.text.trim();
+    final amount = double.tryParse(_amountController.text.trim());
+
+    if (description.isEmpty || amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a valid description and amount")),
+      );
+      return;
+    }
+
+    if (paidBy == null || splitBetween.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Select payer and split members")),
+      );
+      return;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final idToken = await user!.getIdToken();
+
+      final response = await http.post(
+        Uri.parse('http://192.168.1.5:3000/groups/${widget.groupId}/expenses'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "description": description,
+          "amount": amount,
+          "paidBy": paidBy,
+          "splitBetween": splitBetween.toList(),
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        Navigator.pop(context); // Close screen after success
+      } else {
+        final error = jsonDecode(response.body)['message'] ?? 'Unknown error';
+        throw Exception(error);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to submit: ${e.toString()}")),
+      );
+    }
+  }
+
+
 
   @override
   void initState() {
@@ -87,32 +143,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ],
       ),
     );
-  }
-
-  void _submitExpense() {
-    final description = _descController.text.trim();
-    final amount = double.tryParse(_amountController.text.trim());
-
-    if (description.isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter valid description and amount")),
-      );
-      return;
-    }
-
-    if (paidBy == null || splitBetween.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select payer and split members")),
-      );
-      return;
-    }
-
-    // TODO: Send to backend
-    print("Submitting:");
-    print("Desc: $description");
-    print("Amount: $amount");
-    print("Paid by: $paidBy");
-    print("Split among: $splitBetween");
   }
 
   @override

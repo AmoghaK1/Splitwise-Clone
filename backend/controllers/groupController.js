@@ -1,5 +1,7 @@
 const groupService = require("../services/groupService");
 const Group = require('../models/Group');
+const Expense = require('../models/Expense');
+const expenseService = require("../services/expenseService");
 const { NotFoundError, BadRequestError } = require('../utils/errors');
 
 exports.createGroup = async (req, res) => {
@@ -87,3 +89,35 @@ exports.getGroupMembers = async (req, res) => {
 };
 
 
+
+exports.addExpenseToGroup = async (req, res) => {
+  try {
+    const groupId = req.params.groupId;
+    const { description, amount, paidBy, splitBetween } = req.body;
+
+    const expense = await expenseService.addExpense({
+      groupId,
+      description,
+      amount,
+      paidBy,
+      splitBetween,
+    });
+
+    res.status(201).json({ message: "Expense added", expense });
+  } catch (err) {
+    console.error("Failed to add expense:", err);
+    res.status(err.statusCode || 500).json({ message: err.message || "Server error" });
+  }
+};
+
+
+exports.getGroupExpenses = async (req, res) => {
+  try {
+    const groupId = req.params.groupId;
+    const expenses = await Expense.find({ groupId });
+    res.status(200).json({ expenses });
+  } catch (err) {
+    console.error("Failed to fetch expenses:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

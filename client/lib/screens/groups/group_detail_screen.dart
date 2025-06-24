@@ -1,8 +1,8 @@
-import 'dart:convert'; // ✅ for jsonDecode
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // ✅ correct import
+import 'package:http/http.dart' as http;
 import 'package:splitwise_clone/screens/expenses/add_expense_screen.dart';
 import 'package:splitwise_clone/screens/groups/add_group_member_screen.dart';
 
@@ -11,7 +11,26 @@ class GroupDetailScreen extends StatelessWidget {
 
   const GroupDetailScreen({super.key, required this.group});
 
-  Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId) async {
+  Future<List<Map<String, dynamic>>> fetchExpenses() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user!.getIdToken();
+
+    final response = await http.get(
+      Uri.parse('http://192.168.1.5:3000/groups/${group['_id']}/expenses'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to fetch expenses");
+    }
+
+    final decoded = jsonDecode(response.body);
+    return List<Map<String, dynamic>>.from(decoded['expenses']);
+  }
+
+  Future<Map<String, String>> fetchGroupMemberNames(String groupId) async {
     final user = FirebaseAuth.instance.currentUser;
     final idToken = await user!.getIdToken();
 
@@ -28,30 +47,50 @@ class GroupDetailScreen extends StatelessWidget {
 
     final memberIds = List<String>.from(jsonDecode(response.body)['members']);
     final firestore = FirebaseFirestore.instance;
-    final memberDetails = <Map<String, dynamic>>[];
+    final nameMap = <String, String>{};
 
     for (String uid in memberIds) {
       final doc = await firestore.collection('users').doc(uid).get();
       if (doc.exists) {
-        memberDetails.add({
-          '_id': uid,
-          'name': doc.data()?['name'] ?? 'No Name',
-          'email': doc.data()?['email'] ?? 'No Email',
-        });
+        nameMap[uid] = doc.data()?['name'] ?? 'No Name';
       }
     }
 
-    return memberDetails;
+    return nameMap;
+  }
+
+  Future<Map<String, dynamic>> fetchExpensesAndNames() async {
+    final expenses = await fetchExpenses();
+    final nameMap = await fetchGroupMemberNames(group['_id']);
+    return {
+      'expenses': expenses,
+      'nameMap': nameMap,
+    };
   }
 
   void _navigateToAddExpense(BuildContext context) async {
     try {
-      final members = await fetchGroupMembers(group['_id']);
+      final members = await fetchGroupMemberNames(group['_id']);
+      final firestore = FirebaseFirestore.instance;
+      final memberDetails = <Map<String, dynamic>>[];
+
+      for (final entry in members.entries) {
+        final doc = await firestore.collection('users').doc(entry.key).get();
+        if (doc.exists) {
+          memberDetails.add({
+            '_id': entry.key,
+            'name': entry.value,
+            'email': doc.data()?['email'] ?? '',
+          });
+        }
+      }
+
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => AddExpenseScreen(
-            groupMembers: members,
+            groupId: group['_id'],
+            groupMembers: memberDetails,
             currentUserId: FirebaseAuth.instance.currentUser!.uid,
           ),
         ),
@@ -65,7 +104,7 @@ class GroupDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> expenses = group['expenses'] ?? [];
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
       appBar: AppBar(
@@ -131,60 +170,124 @@ class GroupDetailScreen extends StatelessWidget {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.currency_rupee),
                   label: const Text("Settle Up"),
-                  onPressed: () {
-                    // TODO: Settle up logic
-                  },
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.sync_alt),
                   label: const Text("Simplify"),
-                  onPressed: () {
-                    // TODO: Simplify logic
-                  },
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 ),
               ],
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: expenses.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("Ready for Contri?",
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text("Add an expense now!"),
-                            onPressed: () => _navigateToAddExpense(context),
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: fetchExpensesAndNames(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  }
+
+                  final expenses = snapshot.data?['expenses'] ?? [];
+                  final Map<String, String> nameMap =
+                      Map<String, String>.from(snapshot.data?['nameMap'] ?? {});
+
+                  if (expenses.isEmpty) {
+                    return const Center(
+                      child: Text("No expenses added yet."),
+                    );
+                  }
+
+                  double totalPaid = 0;
+                  double totalOwe = 0;
+                  double totalLent = 0;
+
+                  return Column(
+                    children: [
+                      Card(
+                        color: Colors.grey[100],
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Column(children: [
+                                const Text("You paid", style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text("₹${totalPaid.toStringAsFixed(2)}", style: const TextStyle(color: Colors.black)),
+                              ]),
+                              Column(children: [
+                                const Text("You owe", style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text("₹${totalOwe.toStringAsFixed(2)}", style: const TextStyle(color: Colors.red)),
+                              ]),
+                              Column(children: [
+                                const Text("You lent", style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text("₹${totalLent.toStringAsFixed(2)}", style: const TextStyle(color: Colors.green)),
+                              ]),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    )
-                  : ListView.separated(
-                      itemCount: expenses.length,
-                      separatorBuilder: (context, index) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final exp = expenses[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.teal[100],
-                            child: const Icon(Icons.receipt_long, color: Colors.teal),
-                          ),
-                          title: Text(exp['description']),
-                          subtitle: Text("${exp['payerName']} paid ₹${exp['amount']}"),
-                          trailing: Text(
-                            "${exp['owesName']} owes ₹${exp['share']}",
-                            style: TextStyle(
-                              color: exp['owesName'] == 'You' ? Colors.red : Colors.black,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: expenses.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final exp = expenses[index];
+                            final amount = exp['amount'] as num;
+                            final List splitBetween = exp['splitBetween'] as List;
+                            final double share = amount / splitBetween.length;
+                            final bool isPayer = exp['paidBy'] == currentUserId;
+                            final bool isInSplit = splitBetween.contains(currentUserId);
+
+                            String payerName = nameMap[exp['paidBy']] ?? 'Someone';
+                            String message;
+                            Color color;
+
+                            if (isPayer && isInSplit && splitBetween.length == 1) {
+                              message = "You paid ₹$amount";
+                              color = Colors.black;
+                              totalPaid += amount;
+                            } else if (isPayer) {
+                              double lent = share * (splitBetween.length - 1);
+                              message = "You are owed ₹${lent.toStringAsFixed(2)}";
+                              color = Colors.green;
+                              totalPaid += amount;
+                              totalLent += lent;
+                            } else if (isInSplit) {
+                              message = "You owe ₹${share.toStringAsFixed(2)}";
+                              color = Colors.red;
+                              totalOwe += share;
+                            } else {
+                              message = "$payerName paid ₹$amount";
+                              color = Colors.black;
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.teal[100],
+                                child: const Icon(Icons.receipt_long, color: Colors.teal),
+                              ),
+                              title: Text(exp['description'] ?? 'No description'),
+                              subtitle: Text("Paid by: $payerName"),
+                              trailing: Text(
+                                message,
+                                style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
