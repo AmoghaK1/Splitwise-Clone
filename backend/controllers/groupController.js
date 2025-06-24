@@ -93,7 +93,7 @@ exports.getGroupMembers = async (req, res) => {
 exports.addExpenseToGroup = async (req, res) => {
   try {
     const groupId = req.params.groupId;
-    const { description, amount, paidBy, splitBetween } = req.body;
+    const { description, amount, paidBy, splitBetween, splitType, unequalShares, splitMethod } = req.body;
 
     const expense = await expenseService.addExpense({
       groupId,
@@ -101,6 +101,9 @@ exports.addExpenseToGroup = async (req, res) => {
       amount,
       paidBy,
       splitBetween,
+      splitType,
+      unequalShares,
+      splitMethod,
     });
 
     res.status(201).json({ message: "Expense added", expense });

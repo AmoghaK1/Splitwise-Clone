@@ -242,7 +242,23 @@ class GroupDetailScreen extends StatelessWidget {
                             final exp = expenses[index];
                             final amount = exp['amount'] as num;
                             final List splitBetween = exp['splitBetween'] as List;
-                            final double share = amount / splitBetween.length;
+                            final String splitType = exp['splitType'] ?? 'equal';
+                            final bool isUnequalSplit = splitType == 'unequal';
+                            
+                            // Calculate shares based on split type
+                            Map<String, double> unequalShares = {};
+                            if (isUnequalSplit && exp['unequalShares'] != null) {
+                              final rawShares = exp['unequalShares'] as Map<String, dynamic>;
+                              rawShares.forEach((key, value) {
+                                unequalShares[key] = (value as num).toDouble();
+                              });
+                            }
+                            
+                            // Calculate share based on split type
+                            final double share = isUnequalSplit && unequalShares.containsKey(currentUserId) 
+                                ? unequalShares[currentUserId]! 
+                                : amount / splitBetween.length;
+                                
                             final bool isPayer = exp['paidBy'] == currentUserId;
                             final bool isInSplit = splitBetween.contains(currentUserId);
 
@@ -255,7 +271,9 @@ class GroupDetailScreen extends StatelessWidget {
                               color = Colors.black;
                               totalPaid += amount;
                             } else if (isPayer) {
-                              double lent = share * (splitBetween.length - 1);
+                              double lent = isUnequalSplit
+                                  ? amount - (unequalShares[currentUserId] ?? 0)
+                                  : share * (splitBetween.length - 1);
                               message = "You are owed ₹${lent.toStringAsFixed(2)}";
                               color = Colors.green;
                               totalPaid += amount;
@@ -275,7 +293,7 @@ class GroupDetailScreen extends StatelessWidget {
                                 child: const Icon(Icons.receipt_long, color: Colors.teal),
                               ),
                               title: Text(exp['description'] ?? 'No description'),
-                              subtitle: Text("Paid by: $payerName"),
+                              subtitle: Text("Paid by: $payerName (₹$amount)"),
                               trailing: Text(
                                 message,
                                 style: TextStyle(fontWeight: FontWeight.bold, color: color),
