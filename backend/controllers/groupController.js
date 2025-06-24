@@ -72,3 +72,18 @@ exports.getGroupById = async (req, res) => {
   }
 };
 
+exports.getGroupMembers = async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    res.status(200).json({ members: group.members });
+  } catch (err) {
+    console.error('Failed to fetch group members:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+

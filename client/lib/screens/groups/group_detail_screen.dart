@@ -1,4 +1,8 @@
+import 'dart:convert'; // ✅ for jsonDecode
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http; // ✅ correct import
 import 'package:splitwise_clone/screens/expenses/add_expense_screen.dart';
 import 'package:splitwise_clone/screens/groups/add_group_member_screen.dart';
 
@@ -7,10 +11,61 @@ class GroupDetailScreen extends StatelessWidget {
 
   const GroupDetailScreen({super.key, required this.group});
 
+  Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user!.getIdToken();
+
+    final response = await http.get(
+      Uri.parse('http://192.168.1.5:3000/groups/$groupId/members'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to fetch group members");
+    }
+
+    final memberIds = List<String>.from(jsonDecode(response.body)['members']);
+    final firestore = FirebaseFirestore.instance;
+    final memberDetails = <Map<String, dynamic>>[];
+
+    for (String uid in memberIds) {
+      final doc = await firestore.collection('users').doc(uid).get();
+      if (doc.exists) {
+        memberDetails.add({
+          '_id': uid,
+          'name': doc.data()?['name'] ?? 'No Name',
+          'email': doc.data()?['email'] ?? 'No Email',
+        });
+      }
+    }
+
+    return memberDetails;
+  }
+
+  void _navigateToAddExpense(BuildContext context) async {
+    try {
+      final members = await fetchGroupMembers(group['_id']);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddExpenseScreen(
+            groupMembers: members,
+            currentUserId: FirebaseAuth.instance.currentUser!.uid,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load members: $e")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<dynamic> expenses = group['expenses'] ?? [];
-    final List<dynamic> members = group['members'] ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -18,8 +73,12 @@ class GroupDetailScreen extends StatelessWidget {
         title: Row(
           children: [
             CircleAvatar(
-              backgroundImage: NetworkImage(group['pfpUrl'] ?? ''),
-              child: group['pfpUrl'] == null ? const Icon(Icons.group) : null,
+              backgroundImage: group['pfpUrl'] != null && group['pfpUrl'].isNotEmpty
+                  ? NetworkImage(group['pfpUrl'])
+                  : null,
+              child: group['pfpUrl'] == null || group['pfpUrl'].isEmpty
+                  ? const Icon(Icons.group)
+                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -34,29 +93,14 @@ class GroupDetailScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
-              // TODO: Group settings logic
+              // TODO: Group settings
             },
           ),
         ],
       ),
 
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddExpenseScreen(
-                groupMembers: [
-                  {'_id': 'uid1', 'name': 'Amogha'},
-                  {'_id': 'uid2', 'name': 'John'},
-                  {'_id': 'uid3', 'name': 'Arya'},
-                ],
-                currentUserId: 'uid1',
-              ),
-            ),
-          );
-
-        },
+        onPressed: () => _navigateToAddExpense(context),
         backgroundColor: Colors.teal,
         icon: const Icon(Icons.add),
         label: const Text("Add Expense"),
@@ -77,13 +121,13 @@ class GroupDetailScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context)  => AddGroupMembersScreen(groupId: group['_id']),
+                        builder: (context) =>
+                            AddGroupMembersScreen(groupId: group['_id']),
                       ),
                     );
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
                 ),
-                const SizedBox(width: 10),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.currency_rupee),
                   label: const Text("Settle Up"),
@@ -92,19 +136,17 @@ class GroupDetailScreen extends StatelessWidget {
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
-                const SizedBox(width: 10),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.sync_alt),
                   label: const Text("Simplify"),
                   onPressed: () {
-                    // TODO: Simplify payments logic
+                    // TODO: Simplify logic
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-
             Expanded(
               child: expenses.isEmpty
                   ? Center(
@@ -117,23 +159,8 @@ class GroupDetailScreen extends StatelessWidget {
                           TextButton.icon(
                             icon: const Icon(Icons.add),
                             label: const Text("Add an expense now!"),
-                            onPressed: () {
-                             Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AddExpenseScreen(
-                                      groupMembers: [
-                                        {'_id': 'uid1', 'name': 'Amogha'},
-                                        {'_id': 'uid2', 'name': 'John'},
-                                        {'_id': 'uid3', 'name': 'Arya'},
-                                      ],
-                                      currentUserId: 'uid1',
-                                    ),
-                                  ),
-                                );
-
-                            },
-                          )
+                            onPressed: () => _navigateToAddExpense(context),
+                          ),
                         ],
                       ),
                     )
@@ -148,8 +175,7 @@ class GroupDetailScreen extends StatelessWidget {
                             child: const Icon(Icons.receipt_long, color: Colors.teal),
                           ),
                           title: Text(exp['description']),
-                          subtitle: Text(
-                              "${exp['payerName']} paid ₹${exp['amount']}"),
+                          subtitle: Text("${exp['payerName']} paid ₹${exp['amount']}"),
                           trailing: Text(
                             "${exp['owesName']} owes ₹${exp['share']}",
                             style: TextStyle(
