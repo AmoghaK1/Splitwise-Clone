@@ -28,58 +28,61 @@ class _AddGroupMembersScreenState extends State<AddGroupMembersScreen> {
     super.initState();
     _fetchFriends();
   }
+Future<void> _fetchFriends() async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  Future<void> _fetchFriends() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+    // Get current group members from backend
+    final groupResponse = await http.get(
+      Uri.parse('http://192.168.1.5:3000/groups/${widget.groupId}'),
+      headers: {
+        'Authorization': 'Bearer ${await user.getIdToken()}',
+      },
+    );
 
-      if (userDoc.exists && userDoc.data()?['friends'] != null) {
-        final List<dynamic> rawFriendIds = userDoc.data()!['friends'];
-        final friendIds = rawFriendIds.map((id) => id.toString().replaceAll("'", "")).toList();
-
-        final friends = await Future.wait(
-          friendIds.map((friendId) async {
-            final friendDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(friendId)
-                .get();
-            return {
-              '_id': friendId,
-              'name': friendDoc.data()?['name'] ?? 'No Name',
-              'email': friendDoc.data()?['email'] ?? 'No Email',
-            };
-          }),
-        );
-
-        setState(() {
-          _friends = friends.cast<Map<String, dynamic>>();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _friends = [];
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print("Error fetching friends: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Failed to load friends: ${e.toString()}"),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-      setState(() {
-        _isLoading = false;
-      });
+    if (groupResponse.statusCode != 200) {
+      throw Exception('Failed to fetch group info');
     }
+
+    final groupData = jsonDecode(groupResponse.body);
+    final currentGroupMemberIds = Set<String>.from(groupData['members'].map((id) => id.toString()));
+
+    final List<dynamic> rawFriendIds = userDoc.data()?['friends'] ?? [];
+    final friendIds = rawFriendIds.map((id) => id.toString().replaceAll("'", "")).toList();
+
+    final friends = await Future.wait(
+      friendIds.map((friendId) async {
+        if (currentGroupMemberIds.contains(friendId)) return null; // Skip already added
+        final friendDoc = await FirebaseFirestore.instance.collection('users').doc(friendId).get();
+        return {
+          '_id': friendId,
+          'name': friendDoc.data()?['name'] ?? 'No Name',
+          'email': friendDoc.data()?['email'] ?? 'No Email',
+        };
+      }),
+    );
+
+    setState(() {
+      _friends = friends.whereType<Map<String, dynamic>>().toList();
+      _isLoading = false;
+    });
+  } catch (e) {
+    print("Error fetching friends: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Failed to load friends: ${e.toString()}"),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
+
 
   Future<void> _addMembersToGroup() async {
     print("Add to Group button pressed. Selected friend IDs: ");

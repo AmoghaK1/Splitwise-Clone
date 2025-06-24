@@ -52,3 +52,23 @@ exports.addMembers = async (req, res, next) => {
 };
 
 
+exports.getGroupById = async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    res.status(200).json({
+      _id: group._id,
+      name: group.name,
+      members: group.members,
+      createdBy: group.createdBy,
+      createdAt: group.createdAt,
+    });
+  } catch (err) {
+    console.error("Error fetching group:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
