@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:splitwise_clone/screens/expenses/add_expense_screen.dart';
 import 'package:splitwise_clone/screens/groups/add_group_member_screen.dart';
 
 class GroupDetailScreen extends StatelessWidget {
@@ -41,7 +42,20 @@ class GroupDetailScreen extends StatelessWidget {
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Add expense logic
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddExpenseScreen(
+                groupMembers: [
+                  {'_id': 'uid1', 'name': 'Amogha'},
+                  {'_id': 'uid2', 'name': 'John'},
+                  {'_id': 'uid3', 'name': 'Arya'},
+                ],
+                currentUserId: 'uid1',
+              ),
+            ),
+          );
+
         },
         backgroundColor: Colors.teal,
         icon: const Icon(Icons.add),
@@ -104,7 +118,20 @@ class GroupDetailScreen extends StatelessWidget {
                             icon: const Icon(Icons.add),
                             label: const Text("Add an expense now!"),
                             onPressed: () {
-                              // TODO: Add expense
+                             Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddExpenseScreen(
+                                      groupMembers: [
+                                        {'_id': 'uid1', 'name': 'Amogha'},
+                                        {'_id': 'uid2', 'name': 'John'},
+                                        {'_id': 'uid3', 'name': 'Arya'},
+                                      ],
+                                      currentUserId: 'uid1',
+                                    ),
+                                  ),
+                                );
+
                             },
                           )
                         ],
