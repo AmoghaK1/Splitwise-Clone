@@ -193,14 +193,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.sync_alt),
-                  label: const Text("Simplify"),
-                  onPressed: () {
-                    // TODO: Implement simplify logic
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                ),
+               
               ],
             ),
             const SizedBox(height: 20),

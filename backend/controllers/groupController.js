@@ -124,3 +124,104 @@ exports.getGroupExpenses = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.updateGroupName = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { name } = req.body;
+    const userId = req.user.uid;
+
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ message: 'Group name is required' });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Check if user is a member of the group
+    if (!group.members.includes(userId)) {
+      return res.status(403).json({ message: 'You are not a member of this group' });
+    }
+
+    const updatedGroup = await Group.findByIdAndUpdate(
+      groupId,
+      { name: name.trim() },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Group name updated successfully',
+      group: updatedGroup
+    });
+  } catch (err) {
+    console.error('Failed to update group name:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.leaveGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user.uid;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Check if user is a member of the group
+    if (!group.members.includes(userId)) {
+      return res.status(400).json({ message: 'You are not a member of this group' });
+    }
+
+    // Remove user from members array
+    const updatedGroup = await Group.findByIdAndUpdate(
+      groupId,
+      { $pull: { members: userId } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Left group successfully',
+      group: updatedGroup
+    });
+  } catch (err) {
+    console.error('Failed to leave group:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.deleteGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user.uid;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Only group creator can delete the group
+    if (group.createdBy !== userId) {
+      return res.status(403).json({ message: 'Only the group creator can delete this group' });
+    }
+
+    // Delete all expenses associated with this group
+    await Expense.deleteMany({ groupId: groupId });
+
+    // Delete the group
+    await Group.findByIdAndDelete(groupId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Group deleted successfully'
+    });
+  } catch (err) {
+    console.error('Failed to delete group:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

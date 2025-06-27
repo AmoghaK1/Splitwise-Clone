@@ -114,19 +114,237 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     }
   }
 
-  void _updateGroupName() {
-    // TODO: Call backend API to update group name
-    print('Updated name: ${_nameController.text}');
+  Future<void> _updateGroupName() async {
+    final newName = _nameController.text.trim();
+    
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Group name cannot be empty')),
+      );
+      return;
+    }
+
+    if (newName == widget.group['name']) {
+      // No change needed
+      return;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final idToken = await user.getIdToken();
+      
+      final response = await http.put(
+        Uri.parse('http://192.168.1.5:3000/groups/${widget.group['_id']}/name'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'name': newName,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update the local group data
+        setState(() {
+          widget.group['name'] = newName;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group name updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to update group name');
+      }
+    } catch (e) {
+      print('Error updating group name: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update group name: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      
+      // Reset the text field to original name
+      setState(() {
+        _nameController.text = widget.group['name'] ?? '';
+      });
+    }
   }
 
-  void _leaveGroup() {
-    // TODO: Leave group logic
-    print('Leaving group...');
+  Future<void> _leaveGroup() async {
+    // First confirmation dialog
+    bool? confirmLeave = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Leave Group'),
+          content: Text('Are you sure you want to leave "${widget.group['name']}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              child: const Text('Leave'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmLeave != true) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final idToken = await user.getIdToken();
+      
+      final response = await http.post(
+        Uri.parse('http://192.168.1.5:3000/groups/${widget.group['_id']}/leave'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Left group successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Navigate back to home screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to leave group');
+      }
+    } catch (e) {
+      print('Error leaving group: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to leave group: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _deleteGroup() {
-    // TODO: Delete group logic
-    print('Deleting group...');
+  Future<void> _deleteGroup() async {
+    // First confirmation dialog
+    bool? confirmDelete1 = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Group'),
+          content: Text('Are you sure you want to delete "${widget.group['name']}"?\n\nThis action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete1 != true) return;
+
+    // Second confirmation dialog
+    bool? confirmDelete2 = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('This will permanently delete:'),
+              const SizedBox(height: 8),
+              Text('• Group "${widget.group['name']}"'),
+              const Text('• All expenses in this group'),
+              const Text('• All member data for this group'),
+              const SizedBox(height: 16),
+              const Text(
+                'This action is irreversible. Are you reallyy reallyy sure?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('YES, DELETE PERMANENTLY'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete2 != true) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final idToken = await user.getIdToken();
+      
+      final response = await http.delete(
+        Uri.parse('http://192.168.1.5:3000/groups/${widget.group['_id']}'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Navigate back to home screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to delete group');
+      }
+    } catch (e) {
+      print('Error deleting group: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete group: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
