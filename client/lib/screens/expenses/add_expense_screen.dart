@@ -166,38 +166,81 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final tempSelection = Set<String>.from(splitBetween);
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Split Between'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            children: widget.groupMembers.map((member) {
-              return CheckboxListTile(
-                title: Text(member['name']),
-                value: tempSelection.contains(member['_id']),
-                onChanged: (bool? selected) {
-                  setState(() {
-                    if (selected == true) {
-                      tempSelection.add(member['_id']);
-                    } else {
-                      tempSelection.remove(member['_id']);
-                    }
-                  });
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select Members for Equal Split'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: Column(
+                children: [
+                  Text(
+                    'Selected: ${tempSelection.length} of ${widget.groupMembers.length} members',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            tempSelection.clear();
+                            tempSelection.addAll(widget.groupMembers.map((m) => m['_id'].toString()));
+                          });
+                        },
+                        child: const Text('Select All'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            tempSelection.clear();
+                          });
+                        },
+                        child: const Text('Clear All'),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: ListView(
+                      children: widget.groupMembers.map((member) {
+                        final isSelected = tempSelection.contains(member['_id']);
+                        return CheckboxListTile(
+                          title: Text(member['name']),
+                          subtitle: Text(member['email'] ?? ''),
+                          value: isSelected,
+                          onChanged: (bool? selected) {
+                            setDialogState(() {
+                              if (selected == true) {
+                                tempSelection.add(member['_id']);
+                              } else {
+                                tempSelection.remove(member['_id']);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context), 
+                child: const Text('Cancel')
+              ),
+              ElevatedButton(
+                onPressed: tempSelection.isEmpty ? null : () {
+                  setState(() => splitBetween = tempSelection);
+                  Navigator.pop(context);
                 },
-              );
-            }).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => splitBetween = tempSelection);
-              Navigator.pop(context);
-            },
-            child: const Text('Done'),
-          ),
-        ],
+                child: const Text('Done'),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
@@ -211,7 +254,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.balance),
-              title: const Text('Split equally'),
+              title: const Text('Split equally among all members'),
+              subtitle: const Text('Split between all group members equally'),
+              onTap: () {
+                setState(() {
+                  splitType = 'equal';
+                  splitBetween = widget.groupMembers.map((m) => m['_id'].toString()).toSet();
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group),
+              title: const Text('Split equally among selected members'),
+              subtitle: const Text('Choose specific members to split equally'),
               onTap: () {
                 setState(() => splitType = 'equal');
                 Navigator.pop(context);
@@ -221,6 +277,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             ListTile(
               leading: const Icon(Icons.pie_chart),
               title: const Text('Split by exact amounts'),
+              subtitle: const Text('Enter specific amounts for each member'),
               onTap: () {
                 setState(() {
                   splitType = 'unequal';
@@ -233,6 +290,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             ListTile(
               leading: const Icon(Icons.percent),
               title: const Text('Split by percentages'),
+              subtitle: const Text('Enter percentage shares for each member'),
               onTap: () {
                 setState(() {
                   splitType = 'unequal';
@@ -381,6 +439,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  String _getSplitDisplayText() {
+    if (splitType == 'equal') {
+      if (splitBetween.length == widget.groupMembers.length) {
+        return "split equally among all";
+      } else {
+        return "split equally among ${splitBetween.length} members";
+      }
+    } else {
+      return "split ${unequal_splitType == 'amount' ? 'by amount' : 'by percentage'}";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -423,23 +493,73 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   child: Text(widget.groupMembers.firstWhere((m) => m['_id'] == paidBy)['name']),
                 ),
                 const Text(" and "),
-                TextButton(
-                  onPressed: _showSplitTypeDialog,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        splitType == 'equal' 
-                            ? "split equally" 
-                            : "split ${unequal_splitType == 'amount' ? 'by amount' : 'by percentage'}"
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_drop_down, size: 16),
-                    ],
+                Expanded(
+                  child: TextButton(
+                    onPressed: _showSplitTypeDialog,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _getSplitDisplayText(),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_drop_down, size: 16),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
+            if (splitType == 'equal' && splitBetween.length < widget.groupMembers.length) 
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Card(
+                  color: Colors.teal[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Split equally among ${splitBetween.length} selected members:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal[800],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: widget.groupMembers
+                              .where((member) => splitBetween.contains(member['_id']))
+                              .map((member) => Chip(
+                                    label: Text(
+                                      member['name'],
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    backgroundColor: Colors.teal[100],
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _showSplitDialog,
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.teal[100],
+                            foregroundColor: Colors.teal[800],
+                          ),
+                          child: const Text('Change Selection'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (splitType == 'unequal') 
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
